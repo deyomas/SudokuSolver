@@ -45,7 +45,7 @@ public class SudokuSolver
 	public const int DEBUG_ALL = 3;
 
 	public static int debug = DEBUG_NONE;
-	const int DEFAULT_ITERATIONS = 25;
+	const int DEFAULT_ITERATIONS = 40;
 	static int iterations = DEFAULT_ITERATIONS;
 
 	public static bool Debug(int val)
@@ -56,8 +56,18 @@ public class SudokuSolver
 
 	private static void Main(string[] args)
 	{
+		string[] maps = new string[] {
+			"Sudoku Example Very Hard.txt",
+			"Sudoku Example 2.txt",
+			"Sudoku Example AntiSoftTest.txt",
+			"Sudoku Example Hard 2.txt",
+			"Sudoku Example Hard.txt",
+			"Sudoku Example HardDev.txt",
+			"Sudoku Example Very Hard.txt",
+			"Sudoku Example.txt"
+		};
 		args = new string[] {
-			"Sudoku Example Very Hard.txt"
+			maps[0]
 			//"debug-1"
 		};
 
@@ -82,15 +92,17 @@ public class SudokuSolver
 			}
 			if (iterations == DEFAULT_ITERATIONS) int.TryParse(args[i], out iterations);
 		}
-		debug = DEBUG_MILD;
-		map = LoadMap(args[0]);
-
-		LoadOthers();
-
-		Console.WriteLine(Solve());
+		debug = DEBUG_NONE;
+		foreach (string mapName in maps) {
+			LoadMap(mapName);
+			Console.WriteLine("Loaded Map:");
+			PrintMap(map);
+			Console.WriteLine("===============");
+			Console.WriteLine(Solve(mapName));
+		}
 	}
 
-	private static string Solve()
+	private static string Solve(string mapName)
 	{
 		string result = "";
 		/**
@@ -116,21 +128,83 @@ public class SudokuSolver
 			  Two+ same options in same squares means nothing else can go there.
 			  This one would be more difficult to implement
 			*/
+		
+		TimeSpan backTime = new TimeSpan();
+		TimeSpan humanTime = new TimeSpan();
+		bool failed = false;
+		int flips = 10;
+		System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+		sw.Start();
+		for (int iter = 0; iter < flips; iter++) {
+			//Backtracking implementation
+			bool tracking = false;
+			foreach (Row r in rows) {
+				foreach (Square s in r.values) {
+					if (s.value == 0) {
+						tracking = true;
+						BackTrack(s);
+						break;
+					}
+				}
+				if (tracking) break;
+			}
+			//PrintMap(map);
+			//result = ValidateMap().ToString();
+			//return result;
+			if (!ValidateMap()) {
+				sw.Stop();
+				Console.WriteLine("Backtrack couldn't complete");
+				failed = true;
+				backTime = TimeSpan.MaxValue;
+				break;
+			}
+			LoadMap(mapName);
 
+		}
+		if (!failed) {
+			sw.Stop();
+			backTime = sw.Elapsed;
+			Console.WriteLine("Elapsed Backtrack={0}", backTime);
+		}
+		failed = false;
+		sw.Reset();
+		LoadMap(mapName);
 		//Brute Force iteration
-
+		//This solves the grid as a player normally would
 		//This stores all possible numbers
 		//List<HashSet<int>[]> possible = FillPossibilities();
-		int i = 0;
-		Console.WriteLine("--Iterating");
-		while (IterateSolver()) {
-			PrintMap(map);
-			Console.WriteLine("----------------");
-			i++;
-			if (i > iterations) break;
+
+		sw.Start();
+		for (int iter = 0; iter < flips; iter++) {
+			int i = 0;
+			//Console.WriteLine("--Iterating");
+			while (IterateSolver()) {
+				if (Debug(DEBUG_MILD)) PrintMap(map);
+				//Console.WriteLine("----------------");
+				i++;
+				if (i > iterations) break;
+			}
+			if (!ValidateMap()) {
+				sw.Stop();
+				Console.WriteLine("Human couldn't complete");
+				failed = true;
+				humanTime = TimeSpan.MaxValue;
+				break;
+			}
+			LoadMap(mapName);
+			if (Debug(DEBUG_MILD)) {
+				PrintMap(map);
+			}
+			//result = ValidateMap().ToString() + ", " + i + " iterations taken";
 		}
-		PrintMap(map);
-		result = ValidateMap().ToString() + ", " + i + " iterations taken";
+		if (!failed) {
+			sw.Stop();
+			humanTime = sw.Elapsed;
+			Console.WriteLine("Elapsed Human={0}", humanTime);
+		}
+		Console.WriteLine("----Winner:{0}",
+			backTime.CompareTo(humanTime) < 0 ?
+			"Backtrack" : "Human");
 
 		return result;
 
@@ -139,9 +213,53 @@ public class SudokuSolver
 		*/
 	}
 
+	static bool BackTrack(Square s)
+	{
+		if (s == null) {
+			if (Debug(DEBUG_MILD)) Console.WriteLine("S is null");
+			if (ValidateMap()) {
+				return true;
+			}
+			RevertSquare(s);
+			return false;
+		}
+		foreach (int i in s.softValues) {
+			if (CheckSquareHard(i, s.column, s.row)) {
+				s.value = i;
+				map[s.row][s.column] = i;
+				//PrintMap(map);
+				if (BackTrack(FindNextSquare(s))) {
+					return true;
+				}
+			}
+		}
+		RevertSquare(s);
+		return false;
+	}
+
+	static void RevertSquare(Square s)
+	{
+		map[s.row][s.column] = 0;
+		s.value = 0;
+	}
+
+	static Square FindNextSquare(Square s)
+	{
+		for(int i = s.row; i < width; i++) {
+			for(int j = 0; j < width; j++) {
+				if (GetSquare(i, j).value == 0) {
+					//Console.WriteLine("Returning [{0},{1}]", i, j);
+					return GetSquare(i, j);
+				}
+			}
+
+		}
+		return null;
+	}
+
 	static void SetValue(Square s, int val)
 	{
-		Console.WriteLine("Setting [{0},{1}] to {2}", s.row, s.column, val);
+		if (Debug(DEBUG_MILD)) Console.WriteLine("Setting [{0},{1}] to {2}", s.row, s.column, val);
 		s.SetValue(val);
 		map[s.row][s.column] = val;
 		rows[s.row].RemoveSoftValue(val);
@@ -181,9 +299,10 @@ public class SudokuSolver
 				}
 			}
 		}
-
-		foreach(Box b in boxes) {
-			b.PrintValues();
+		if (Debug(DEBUG_ALL)) {
+			foreach (Box b in boxes) {
+				b.PrintValues();
+			}
 		}
 
 		Square tempSquare;
@@ -264,8 +383,8 @@ public class SudokuSolver
 								ListToString<int>(softsSaved[i]),
 								ListToString<int>(r.values[i].softValues));
 						r.PrintValues();
+						Console.WriteLine("CHANGED IS TRUE --------");
 					}
-					Console.WriteLine("CHANGED IS TRUE --------");
 					changed = true;
 				}
 			}
@@ -336,8 +455,8 @@ public class SudokuSolver
 						Console.WriteLine("{0}\n--Compared to--\n{1}",
 								ListToString<SoftValueLimiter>(softLimiterTemp),
 								ListToString<SoftValueLimiter>(b.softLimiters));
+						Console.WriteLine("CHANGED IS TRUE --------");
 					}
-					Console.WriteLine("CHANGED IS TRUE --------");
 					changed = true;
 				}
 
@@ -348,8 +467,8 @@ public class SudokuSolver
 							Console.WriteLine("{0}\n--Compared to--\n{1}",
 								ListToString<int>(softsSaved[i]),
 								ListToString<int>(b.values[i].softValues));
+							Console.WriteLine("CHANGED IS TRUE --------");
 						}
-						Console.WriteLine("CHANGED IS TRUE --------");
 						changed = true;
 					}
 				}
@@ -366,7 +485,7 @@ public class SudokuSolver
 				adjacent.Add(boxes[j+(i*boxWidth)]);
 			}
 			if (CalculateBoxAnti(adjacent)) {
-				Console.WriteLine("CHANGED IS TRUE --------");
+				if (Debug(DEBUG_MILD)) Console.WriteLine("CHANGED IS TRUE --------");
 				changed = true;
 			}
 		}
@@ -378,7 +497,7 @@ public class SudokuSolver
 				adjacent.Add(boxes[i+(j * boxWidth)]);
 			}
 			if (CalculateBoxAnti(adjacent)) {
-				Console.WriteLine("CHANGED IS TRUE --------");
+				if (Debug(DEBUG_MILD)) Console.WriteLine("CHANGED IS TRUE --------");
 				changed = true;
 			}
 		}
@@ -397,15 +516,17 @@ public class SudokuSolver
 
 		List<HashSet<int>[]> fullList = new List<HashSet<int>[]>();
 		foreach (Box bo in b) {
-			bo.PrintValues();
+			//if (Debug(DEBUG_MILD)) bo.PrintValues();
 			HashSet<int>[] hsl = new HashSet<int>[width];
 			foreach(Square s in bo.values) {
 				if (s.value == 0) {
 					foreach(int i in s.softValues) {
 						int idx = vertical ? s.column : s.row;
 						if (hsl[idx] == null) {
-							Console.WriteLine("Adding {0} at {1}",
+							if (Debug(DEBUG_MOST)) {
+								Console.WriteLine("Adding {0} at {1}",
 								vertical ? "column" : "row", idx);
+							}
 							hsl[idx] = new HashSet<int>();
 						}
 						hsl[idx].Add(i);
@@ -427,7 +548,7 @@ public class SudokuSolver
 				}
 				s += "\n";
 			}
-			Console.WriteLine("Box:\n" + s);
+			//if (Debug(DEBUG_MILD)) Console.WriteLine("Box:\n" + s);
 		}
 
 
@@ -509,10 +630,13 @@ public class SudokuSolver
 			row++;
 			if (row >= width) break;
 		}
-
+		/*
 		Console.WriteLine("Loaded Map:");
 		PrintMap(m);
 		Console.WriteLine("===============");
+		*/
+		map = m;
+		LoadOthers();
 
 		return m;
 	}
