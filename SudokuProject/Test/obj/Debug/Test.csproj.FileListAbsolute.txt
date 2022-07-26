@@ -1,8 +1,0 @@
-C:\Users\Will\Desktop\Daily Coding Challenges\Sudoku\SudokuProject\Test\bin\Debug\Test.exe
-C:\Users\Will\Desktop\Daily Coding Challenges\Sudoku\SudokuProject\Test\bin\Debug\Test.pdb
-C:\Users\Will\Desktop\Daily Coding Challenges\Sudoku\SudokuProject\Test\obj\Debug\Test.csprojAssemblyReference.cache
-C:\Users\Will\Desktop\Daily Coding Challenges\Sudoku\SudokuProject\Test\obj\Debug\Test.Properties.Resources.resources
-C:\Users\Will\Desktop\Daily Coding Challenges\Sudoku\SudokuProject\Test\obj\Debug\Test.csproj.GenerateResource.cache
-C:\Users\Will\Desktop\Daily Coding Challenges\Sudoku\SudokuProject\Test\obj\Debug\Test.csproj.CoreCompileInputs.cache
-C:\Users\Will\Desktop\Daily Coding Challenges\Sudoku\SudokuProject\Test\obj\Debug\Test.exe
-C:\Users\Will\Desktop\Daily Coding Challenges\Sudoku\SudokuProject\Test\obj\Debug\Test.pdb
